@@ -6,6 +6,11 @@
 
 Adafruit_MPU6050 mpu;
 
+const int BUTTON_PIN = D7;
+
+int buttonState = HIGH;
+int lastButtonState;
+
 float gyro_error_x = 0;
 float gyro_error_y = 0;
 float gyro_error_z = 0;
@@ -16,11 +21,16 @@ float gyro_angle_x = 0;
 float gyro_angle_y = 0;
 float gyro_angle_z = 0;
 
-void calibrate();
+void calibrate_gyro();
+void calibrate_accel();
 
 
 void setup(void) {
+  
   Serial.begin(115200);
+
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+
   while (!Serial)
     delay(10); // will pause Zero, Leonardo, etc until serial console opens
 
@@ -99,7 +109,7 @@ void setup(void) {
 
     Serial.println("Calibrating, keep device still...");
   delay(2000);
-  calibrate();
+  calibrate_gyro();
   Serial.print("gyro_error_x: ");
   Serial.println(gyro_error_x);
   Serial.print("gyro_error_y: ");
@@ -114,6 +124,18 @@ void setup(void) {
 
 void loop() {
 
+  /* Handle button input */
+  buttonState = digitalRead(BUTTON_PIN);
+
+  if (buttonState != lastButtonState) {
+    if (buttonState == LOW) {
+      Serial.println("Button pressed");
+    } else {
+      Serial.println("Button released");
+    }
+    lastButtonState = buttonState;
+  }
+
   /* Get new sensor events with the readings */
   sensors_event_t a, g, temp;
   mpu.getEvent(&a, &g, &temp);
@@ -126,6 +148,9 @@ void loop() {
   gyro_angle_x += ((g.gyro.x - gyro_error_x) * dt) * (180.0 / M_PI);
   gyro_angle_y += ((g.gyro.y - gyro_error_y) * dt) * (180.0 / M_PI);
   gyro_angle_z += ((g.gyro.z - gyro_error_z) * dt) * (180.0 / M_PI);
+
+  /* Calculate Accelerometer angles */
+  float accel_angle_x = atan(a.acceleration.y / sqrt(pow(a.acceleration.x, 2) + pow(a.acceleration.z, 2))) * (180.0 / M_PI);
 
   
   /* Print out the values */
@@ -160,7 +185,7 @@ void loop() {
   delay(500);
 }
 
-void calibrate() {
+void calibrate_gyro() {
 
   sensors_event_t a, g, temp;
 
