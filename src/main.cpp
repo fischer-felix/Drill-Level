@@ -4,12 +4,21 @@
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
 
+#define BUTTON_PIN D7 
+#define DEBOUNCE_TIME 250  // milliseconds
+
 Adafruit_MPU6050 mpu;
 
-const int BUTTON_PIN = D7;
+volatile unsigned long lastButtonPress = 0;
+volatile bool calibrating = false;
 
-int buttonState = HIGH;
-int lastButtonState;
+float accel_x_min = -9.51;
+float accel_x_max = 10.26;
+float accel_y_min = -9.74;
+float accel_y_max = 9.81;
+float accel_z_min = 11.17;
+float accel_z_max = 9.07;
+
 
 float gyro_error_x = 0;
 float gyro_error_y = 0;
@@ -21,8 +30,63 @@ float gyro_angle_x = 0;
 float gyro_angle_y = 0;
 float gyro_angle_z = 0;
 
-void calibrate_gyro();
-void calibrate_accel();
+
+void calibrate_accel() {
+
+  calibrating = true;
+
+  Serial.println("Calibrating accelerometer...");
+
+  sensors_event_t a, g, temp;
+
+  while (calibrating) {
+    
+    mpu.getEvent(&a, &g, &temp);
+
+    Serial.print("Acceleration X: ");
+    Serial.print(a.acceleration.x);
+    Serial.print(", Y: ");
+    Serial.print(a.acceleration.y);
+    Serial.print(", Z: ");
+    Serial.println(a.acceleration.z);
+
+    //delay(250);
+
+  }
+  
+  Serial.println("Calibration complete!");
+
+}
+
+void IRAM_ATTR handleInterrupt() {
+  unsigned long currentTime = millis();
+  if ((currentTime - lastButtonPress) >= DEBOUNCE_TIME) {
+
+    lastButtonPress = currentTime;
+
+    calibrate_accel();
+  
+  }
+}
+
+
+void calibrate_gyro() {
+
+  sensors_event_t a, g, temp;
+
+  for (int i = 0; i < 200; i++) {
+    mpu.getEvent(&a, &g, &temp);
+    gyro_error_x += g.gyro.x;
+    gyro_error_y += g.gyro.y;
+    gyro_error_z += g.gyro.z;
+    delay(3);
+  }
+
+  gyro_error_x /= 200;
+  gyro_error_y /= 200;
+  gyro_error_z /= 200;
+
+}
 
 
 void setup(void) {
@@ -30,6 +94,7 @@ void setup(void) {
   Serial.begin(115200);
 
   pinMode(BUTTON_PIN, INPUT_PULLUP);
+  attachInterrupt(BUTTON_PIN, handleInterrupt, RISING);
 
   while (!Serial)
     delay(10); // will pause Zero, Leonardo, etc until serial console opens
@@ -124,18 +189,6 @@ void setup(void) {
 
 void loop() {
 
-  /* Handle button input */
-  buttonState = digitalRead(BUTTON_PIN);
-
-  if (buttonState != lastButtonState) {
-    if (buttonState == LOW) {
-      Serial.println("Button pressed");
-    } else {
-      Serial.println("Button released");
-    }
-    lastButtonState = buttonState;
-  }
-
   /* Get new sensor events with the readings */
   sensors_event_t a, g, temp;
   mpu.getEvent(&a, &g, &temp);
@@ -185,20 +238,3 @@ void loop() {
   delay(500);
 }
 
-void calibrate_gyro() {
-
-  sensors_event_t a, g, temp;
-
-  for (int i = 0; i < 200; i++) {
-    mpu.getEvent(&a, &g, &temp);
-    gyro_error_x += g.gyro.x;
-    gyro_error_y += g.gyro.y;
-    gyro_error_z += g.gyro.z;
-    delay(3);
-  }
-
-  gyro_error_x /= 200;
-  gyro_error_y /= 200;
-  gyro_error_z /= 200;
-
-}
