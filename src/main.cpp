@@ -10,6 +10,12 @@ float gyro_error_x = 0;
 float gyro_error_y = 0;
 float gyro_error_z = 0;
 
+unsigned long now, last_time;
+
+float gyro_angle_x = 0;
+float gyro_angle_y = 0;
+float gyro_angle_z = 0;
+
 void calibrate();
 
 
@@ -112,6 +118,16 @@ void loop() {
   sensors_event_t a, g, temp;
   mpu.getEvent(&a, &g, &temp);
 
+  /* Calculate the gyro angles */
+  now = millis();
+  float dt = (now - last_time) / 1000.0;
+  last_time = now;
+
+  gyro_angle_x += ((g.gyro.x - gyro_error_x) * dt) * (180.0 / M_PI);
+  gyro_angle_y += ((g.gyro.y - gyro_error_y) * dt) * (180.0 / M_PI);
+  gyro_angle_z += ((g.gyro.z - gyro_error_z) * dt) * (180.0 / M_PI);
+
+  
   /* Print out the values */
   Serial.print("Acceleration X: ");
   Serial.print(a.acceleration.x);
@@ -122,12 +138,19 @@ void loop() {
   Serial.println(" m/s^2");
 
   Serial.print("Rotation X: ");
-  Serial.print(g.gyro.x);
+  Serial.print(g.gyro.x - gyro_error_x);
   Serial.print(", Y: ");
-  Serial.print(g.gyro.y);
+  Serial.print(g.gyro.y - gyro_error_y);
   Serial.print(", Z: ");
-  Serial.print(g.gyro.z);
+  Serial.print(g.gyro.z - gyro_error_z);
   Serial.println(" rad/s");
+
+  Serial.print("Gyro angle X: ");
+  Serial.print(gyro_angle_x);
+  Serial.print(", Y: ");
+  Serial.print(gyro_angle_y);
+  Serial.print(", Z: ");
+  Serial.println(gyro_angle_z);
 
   Serial.print("Temperature: ");
   Serial.print(temp.temperature);
