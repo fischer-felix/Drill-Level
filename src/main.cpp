@@ -6,6 +6,12 @@
 
 Adafruit_MPU6050 mpu;
 
+float gyro_error_x = 0;
+float gyro_error_y = 0;
+float gyro_error_z = 0;
+
+void calibrate();
+
 
 void setup(void) {
   Serial.begin(115200);
@@ -85,6 +91,19 @@ void setup(void) {
   Serial.println("");
   delay(100);
 
+    Serial.println("Calibrating, keep device still...");
+  delay(2000);
+  calibrate();
+  Serial.print("gyro_error_x: ");
+  Serial.println(gyro_error_x);
+  Serial.print("gyro_error_y: ");
+  Serial.println(gyro_error_y);
+  Serial.print("gyro_error_z: ");
+  Serial.println(gyro_error_z);
+
+  Serial.println("");
+  delay(1000);
+
 }
 
 void loop() {
@@ -116,4 +135,22 @@ void loop() {
 
   Serial.println("");
   delay(500);
+}
+
+void calibrate() {
+
+  sensors_event_t a, g, temp;
+
+  for (int i = 0; i < 200; i++) {
+    mpu.getEvent(&a, &g, &temp);
+    gyro_error_x += g.gyro.x;
+    gyro_error_y += g.gyro.y;
+    gyro_error_z += g.gyro.z;
+    delay(3);
+  }
+
+  gyro_error_x /= 200;
+  gyro_error_y /= 200;
+  gyro_error_z /= 200;
+
 }
